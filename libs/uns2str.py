@@ -23,11 +23,11 @@ class Uns2Str:
         except:
             return Trimesh()
 
-    def convert(self, source_path: str, save_str: bool=False, save_param: bool=False) -> trimesh.Trimesh:
+    def read_convert(self, source_path: str, apply_obb: bool=False) -> trimesh.Trimesh:
         _uns_mesh = self.__read(source_path)
-        return self.__convert(_uns_mesh, save_str, save_param)
+        return self.convert(_uns_mesh, apply_obb)
 
-    def __convert(self, uns_mesh: Trimesh, apply_obb: bool=False) -> Tuple[Trimesh, Trimesh]:
+    def convert(self, uns_mesh: Trimesh, apply_obb: bool=False) -> Tuple[Trimesh, Trimesh]:
         inn_verts, bnd_verts, bnd_length = split_bnd_inn(uns_mesh)
         f_B = mapping_boundary(uns_mesh, bnd_verts, bnd_length)
         bnd_verts = bnd_verts[1:]
@@ -43,4 +43,4 @@ class Uns2Str:
 
 
 if __name__ == '__main__':
-    Uns2Str().convert('static/unsmesh/simple_tooth.obj')
+    Uns2Str().read_convert('static/example/face1.obj')
