@@ -36,11 +36,11 @@ class Uns2Str:
         f_I = solve_equation(sp_weights, f_B, inn_verts, bnd_verts)
         # reconstruct
         param_mesh = build_param_mesh(uns_mesh, inn_verts, bnd_verts, f_I, f_B)
-        str_mesh = build_str_mesh(uns_mesh, param_mesh, 50)
+        str_mesh = build_str_mesh(uns_mesh, param_mesh, 100)
 
         if apply_obb: str_mesh.apply_obb()
         return str_mesh
 
 
 if __name__ == '__main__':
-    Uns2Str().read_convert('static/example/face1.obj')
+    Uns2Str().read_convert('static/unsmesh/simple_tooth.obj')

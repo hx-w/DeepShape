@@ -170,60 +170,65 @@ build str mesh by sample vertices on param mesh
 def build_str_mesh(uns_mesh: Trimesh, param_mesh: Trimesh, sample_nums: int=50, scale: float=2.) -> Trimesh:
     assert sample_nums > 2, 'sample_nums too small'
     # flatten numpy elements to list will accelerate in cycle
+    param_mesh.remove_degenerate_faces()
     flt_faces = param_mesh.faces.tolist()
     flt_area_faces = param_mesh.area_faces.tolist()
-    flt_vertices = param_mesh.vertices.tolist()
-    flt_raw_faces = [[flt_vertices[tri[0]], flt_vertices[tri[1]], flt_vertices[tri[2]]] for tri in flt_faces]
 
     str_mesh = Trimesh()
-    # return (triangle: np.array, area: float)
-    def which_trias_in(pos: tuple) -> tuple:
-        for idx, tri in enumerate(flt_faces):
-            if flt_area_faces[idx] - 0.0 < 1e-6:
-                continue
-            _s = mesh_vec_cross(flt_raw_faces[idx][0], flt_raw_faces[idx][2], pos)
-            _t = mesh_vec_cross(flt_raw_faces[idx][1], flt_raw_faces[idx][0], pos)
-            if (_s < 0) != (_t < 0) and _s != 0 and _t != 0:
-                continue
-            _d = mesh_vec_cross(flt_raw_faces[idx][2], flt_raw_faces[idx][1], pos)
-            if _d == 0 or (_d < 0) == (_s + _t <= 0):
-                return tri, flt_area_faces[idx]
-        assert False, 'not found'
-
-    for ir in tqdm(range(sample_nums), desc='remeshing'):
-        for ic in range(sample_nums):
-            _x = scale * ir / (sample_nums - 1) - scale / 2
-            _y = scale * ic / (sample_nums - 1) - scale / 2
-            spot_trias, tot_area = which_trias_in((_x, _y, 0))
-            vi_area = mesh_trias_area(
-                (_x, _y, 0),
-                param_mesh.vertices[spot_trias[1]],
-                param_mesh.vertices[spot_trias[2]],
+    square_nums = sample_nums ** 2
+    sample_pnts = [
+        [scale * ir / (sample_nums - 1) - scale / 2, scale * ic / (sample_nums - 1) - scale / 2, 0.]
+        for ir in range(sample_nums) for ic in range(sample_nums)
+    ]
+    sample_trias = param_mesh.nearest.on_surface(sample_pnts)
+    sample_trias = sample_trias[2].tolist()
+    spot_trias = list(map(lambda tri: flt_faces[tri], sample_trias))
+    vijk_areas = [
+        [
+            mesh_trias_area(
+                sample_pnts[idx],
+                param_mesh.vertices[spot_trias[idx][1]],
+                param_mesh.vertices[spot_trias[idx][2]]
+            ),
+            mesh_trias_area(
+                param_mesh.vertices[spot_trias[idx][0]],
+                sample_pnts[idx],
+                param_mesh.vertices[spot_trias[idx][2]]
+            ),
+            mesh_trias_area(
+                param_mesh.vertices[spot_trias[idx][0]],
+                param_mesh.vertices[spot_trias[idx][1]],
+                sample_pnts[idx],
             )
-            vj_area = mesh_trias_area(
-                param_mesh.vertices[spot_trias[0]],
-                (_x, _y, 0),
-                param_mesh.vertices[spot_trias[2]],
-            )
-            vk_area = mesh_trias_area(
-                param_mesh.vertices[spot_trias[0]],
-                param_mesh.vertices[spot_trias[1]],
-                (_x, _y, 0),
-            )
-            pnt = (vi_area * uns_mesh.vertices[spot_trias[0]] +
-                vj_area * uns_mesh.vertices[spot_trias[1]] +
-                vk_area * uns_mesh.vertices[spot_trias[2]]) / tot_area
+        ]
+        for idx in range(square_nums)
+    ]
 
-            str_mesh.vertices = np.vstack([str_mesh.vertices, pnt])
+    str_pnts = [
+        (
+            vijk_areas[idx][0] * uns_mesh.vertices[spot_trias[idx][0]] +
+            vijk_areas[idx][1] * uns_mesh.vertices[spot_trias[idx][1]] +
+            vijk_areas[idx][2] * uns_mesh.vertices[spot_trias[idx][2]]
+        ) / flt_area_faces[sample_trias[idx]]
+        for idx in range(square_nums)
+    ]
 
-            if ir > 0 and ic > 0:
-                idx = ir * sample_nums + ic
-                str_mesh.faces = np.vstack([
-                    str_mesh.faces,
-                    [idx, idx - sample_nums, idx - 1],
-                    [idx - 1, idx - sample_nums, idx - sample_nums - 1]
-                ])
+    half_trias1 = [
+        [ir * sample_nums + ic, ir * sample_nums + ic - sample_nums, ir * sample_nums + ic - 1]
+        for ir in range(1, sample_nums) for ic in range(1, sample_nums)
+    ]
+    half_trias2 = [
+        [ir * sample_nums + ic - 1, ir * sample_nums + ic - sample_nums, ir * sample_nums + ic - sample_nums - 1]
+        for ir in range(1, sample_nums) for ic in range(1, sample_nums)
+    ]
 
+    str_mesh.vertices = str_pnts
+    str_mesh.faces = np.vstack([half_trias1, half_trias2])
+    
+    str_mesh.remove_infinite_values()
+    str_mesh.remove_degenerate_faces()
+    str_mesh.remove_unreferenced_vertices()
     str_mesh.fill_holes()
     str_mesh.fix_normals()
+
     return str_mesh
