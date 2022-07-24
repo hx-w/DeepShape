@@ -43,4 +43,5 @@ class Uns2Str:
 
 
 if __name__ == '__main__':
-    Uns2Str().read_convert('static/unsmesh/simple_tooth.obj')
+    str_mesh = Uns2Str().read_convert('static/unsmesh/simple_tooth.obj', True)
+    str_mesh.show()

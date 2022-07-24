@@ -1,0 +1,8 @@
+trimesh
+rtree
+seaborn
+networkx
+numpy_indexed
+tqdm
+pyglet
+shapely
